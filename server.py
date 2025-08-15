@@ -38,10 +38,18 @@ class ImageOpsTransformParamsIn(BaseModel):
     Parameters:
     - source_image_url: URL of the image to transform
     - crop_pixels: Remove pixels from borders [top, right, bottom, left] or single value for all
+    - crop_mm: Remove millimeters from borders [top, right, bottom, left] or single value for all
+    - crop_inches: Remove inches from borders [top, right, bottom, left] or single value for all
     - crop_box_pixels: Extract rectangle [x1, y1, x2, y2] in pixels
+    - crop_box_mm: Extract rectangle [x1, y1, x2, y2] in millimeters
+    - crop_box_inches: Extract rectangle [x1, y1, x2, y2] in inches
     - crop_aspect_ratio: Crop to width/height ratio (e.g., 1.77 for 16:9)
     - pad_pixels: Expand canvas [width, height] in pixels
+    - pad_mm: Expand canvas [width, height] in millimeters
+    - pad_inches: Expand canvas [width, height] in inches
     - contain_pixels: Scale to fit within [width, height] in pixels
+    - contain_mm: Scale to fit within [width, height] in millimeters
+    - contain_inches: Scale to fit within [width, height] in inches
     - override_dpi: Set DPI metadata
     - rotate: Rotation angle in degrees
     - rotate_to: Auto-rotate to 'landscape' or 'portrait'
@@ -53,10 +61,18 @@ class ImageOpsTransformParamsIn(BaseModel):
 async def transform_image(
     source_image_url: str,
     crop_pixels: Optional[List[int]] = None,
+    crop_mm: Optional[List[float]] = None,
+    crop_inches: Optional[List[float]] = None,
     crop_box_pixels: Optional[List[int]] = None,
+    crop_box_mm: Optional[List[float]] = None,
+    crop_box_inches: Optional[List[float]] = None,
     crop_aspect_ratio: Optional[float] = None,
     pad_pixels: Optional[List[int]] = None,
+    pad_mm: Optional[List[float]] = None,
+    pad_inches: Optional[List[float]] = None,
     contain_pixels: Optional[List[int]] = None,
+    contain_mm: Optional[List[float]] = None,
+    contain_inches: Optional[List[float]] = None,
     override_dpi: Optional[int] = None,
     rotate: Optional[int] = None,
     rotate_to: Optional[str] = None,
@@ -68,22 +84,38 @@ async def transform_image(
         return {"error": "API key not configured. Please set PORCUS_LARDUM_API_KEY environment variable."}
     
     try:
-        # Convert pixel values to Unit objects
+        # Convert values to Unit objects
         crop_units = None
         if crop_pixels:
             crop_units = [Unit(pixels=p) for p in crop_pixels]
+        elif crop_mm:
+            crop_units = [Unit(millimeter=p) for p in crop_mm]
+        elif crop_inches:
+            crop_units = [Unit(inches=p) for p in crop_inches]
         
         crop_box_units = None
         if crop_box_pixels:
             crop_box_units = [[Unit(pixels=p)] for p in crop_box_pixels]
+        elif crop_box_mm:
+            crop_box_units = [[Unit(millimeter=p)] for p in crop_box_mm]
+        elif crop_box_inches:
+            crop_box_units = [[Unit(inches=p)] for p in crop_box_inches]
         
         pad_units = None
         if pad_pixels:
             pad_units = [Unit(pixels=p) for p in pad_pixels]
+        elif pad_mm:
+            pad_units = [Unit(millimeter=p) for p in pad_mm]
+        elif pad_inches:
+            pad_units = [Unit(inches=p) for p in pad_inches]
         
         contain_units = None
         if contain_pixels:
             contain_units = [Unit(pixels=p) for p in contain_pixels]
+        elif contain_mm:
+            contain_units = [Unit(millimeter=p) for p in contain_mm]
+        elif contain_inches:
+            contain_units = [Unit(inches=p) for p in contain_inches]
         
         transform_params = ImageOpsTransformParamsIn(
             image_ops=True,
@@ -187,8 +219,8 @@ async def generate_temp_blob(extension: Optional[str] = None) -> Dict[str, Any]:
             )
             
             if response.status_code == 200:
-                # The API returns a plain text URL, not JSON
-                temp_url = response.text.strip()
+                # The API returns a JSON-encoded string, strip quotes to get plain URL
+                temp_url = response.text.strip().strip('"')
                 return {
                     "success": True,
                     "temp_url": temp_url,
@@ -202,6 +234,161 @@ async def generate_temp_blob(extension: Optional[str] = None) -> Dict[str, Any]:
                 
     except Exception as e:
         return {"error": f"Failed to generate temp blob URL: {str(e)}"}
+
+@mcp.tool(
+    title="Async Image Transformation",
+    description="""Queue an image transformation job for asynchronous processing.
+    
+    Parameters:
+    - source_image_url: URL of the image to transform
+    - output_image_url: (optional*) URL where the transformed image will be delivered
+    - client_transform_id: Optional client ID for tracking (default: generated UUID)
+    - source: Optional source identifier for job correlation
+    - crop_pixels: Remove pixels from borders [top, right, bottom, left] or single value for all
+    - crop_mm: Remove millimeters from borders [top, right, bottom, left] or single value for all
+    - crop_inches: Remove inches from borders [top, right, bottom, left] or single value for all
+    - crop_box_pixels: Extract rectangle [x1, y1, x2, y2] in pixels
+    - crop_box_mm: Extract rectangle [x1, y1, x2, y2] in millimeters
+    - crop_box_inches: Extract rectangle [x1, y1, x2, y2] in inches
+    - crop_aspect_ratio: Crop to width/height ratio (e.g., 1.77 for 16:9)
+    - pad_pixels: Expand canvas [width, height] in pixels
+    - pad_mm: Expand canvas [width, height] in millimeters
+    - pad_inches: Expand canvas [width, height] in inches
+    - contain_pixels: Scale to fit within [width, height] in pixels
+    - contain_mm: Scale to fit within [width, height] in millimeters
+    - contain_inches: Scale to fit within [width, height] in inches
+    - override_dpi: Set DPI metadata
+    - rotate: Rotation angle in degrees
+    - rotate_to: Auto-rotate to 'landscape' or 'portrait'
+    - grayscale: Convert to grayscale
+    - pdf: Convert output to PDF
+    
+    Returns a transform_job_id for tracking the asynchronous job.
+
+    * If user didn't provide a output_image_url, a new temporary URL will be generated using the temp_blob tool
+    """
+)
+async def async_image_transformation(
+    source_image_url: str,
+    output_image_url: str,
+    client_transform_id: Optional[str] = None,
+    source: Optional[str] = None,
+    crop_pixels: Optional[List[int]] = None,
+    crop_mm: Optional[List[float]] = None,
+    crop_inches: Optional[List[float]] = None,
+    crop_box_pixels: Optional[List[int]] = None,
+    crop_box_mm: Optional[List[float]] = None,
+    crop_box_inches: Optional[List[float]] = None,
+    crop_aspect_ratio: Optional[float] = None,
+    pad_pixels: Optional[List[int]] = None,
+    pad_mm: Optional[List[float]] = None,
+    pad_inches: Optional[List[float]] = None,
+    contain_pixels: Optional[List[int]] = None,
+    contain_mm: Optional[List[float]] = None,
+    contain_inches: Optional[List[float]] = None,
+    override_dpi: Optional[int] = None,
+    rotate: Optional[int] = None,
+    rotate_to: Optional[str] = None,
+    grayscale: Optional[bool] = None,
+    pdf: Optional[bool] = None,
+) -> Dict[str, Any]:
+    
+    if not API_KEY:
+        return {"error": "API key not configured. Please set PORCUS_LARDUM_API_KEY environment variable."}
+    
+    try:
+        # Generate client_transform_id if not provided
+        import uuid
+        if not client_transform_id:
+            client_transform_id = str(uuid.uuid4())
+        
+        # Convert values to Unit objects
+        crop_units = None
+        if crop_pixels:
+            crop_units = [Unit(pixels=p) for p in crop_pixels]
+        elif crop_mm:
+            crop_units = [Unit(millimeter=p) for p in crop_mm]
+        elif crop_inches:
+            crop_units = [Unit(inches=p) for p in crop_inches]
+        
+        crop_box_units = None
+        if crop_box_pixels:
+            crop_box_units = [[Unit(pixels=p)] for p in crop_box_pixels]
+        elif crop_box_mm:
+            crop_box_units = [[Unit(millimeter=p)] for p in crop_box_mm]
+        elif crop_box_inches:
+            crop_box_units = [[Unit(inches=p)] for p in crop_box_inches]
+        
+        pad_units = None
+        if pad_pixels:
+            pad_units = [Unit(pixels=p) for p in pad_pixels]
+        elif pad_mm:
+            pad_units = [Unit(millimeter=p) for p in pad_mm]
+        elif pad_inches:
+            pad_units = [Unit(inches=p) for p in pad_inches]
+        
+        contain_units = None
+        if contain_pixels:
+            contain_units = [Unit(pixels=p) for p in contain_pixels]
+        elif contain_mm:
+            contain_units = [Unit(millimeter=p) for p in contain_mm]
+        elif contain_inches:
+            contain_units = [Unit(inches=p) for p in contain_inches]
+        
+        transform_params = ImageOpsTransformParamsIn(
+            image_ops=True,
+            crop=crop_units,
+            crop_box=crop_box_units,
+            crop_aspect_ratio=crop_aspect_ratio,
+            pad=pad_units,
+            contain=contain_units,
+            override_dpi=override_dpi,
+            rotate=rotate,
+            rotate_to=rotate_to,
+            grayscale=grayscale,
+            pdf=pdf,
+        )
+        
+        request_body = {
+            "source_image_url": source_image_url,
+            "output_image_url": output_image_url,
+            "client_transform_id": client_transform_id,
+            "transform": transform_params.model_dump(exclude_none=True)
+        }
+        
+        # Add source if provided
+        if source:
+            request_body["source"] = source
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{BASE_URL}/transform",
+                json=request_body,
+                headers={
+                    "x-api-key": API_KEY,
+                    "Content-Type": "application/json",
+                },
+                timeout=30.0,
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True,
+                    "transform_job_id": result.get("transform_job_id"),
+                    "client_transform_id": client_transform_id,
+                    "message": "Async transformation job queued successfully",
+                    "output_url": output_image_url,
+                    "status": "queued"
+                }
+            else:
+                return {
+                    "error": f"API request failed with status {response.status_code}",
+                    "details": response.text,
+                }
+                
+    except Exception as e:
+        return {"error": f"Failed to queue async transformation: {str(e)}"}
 
 @mcp.prompt()
 def crop_image_prompt(x1: int = 0, y1: int = 0, x2: int = 100, y2: int = 100) -> str:

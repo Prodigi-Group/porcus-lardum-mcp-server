@@ -64,6 +64,94 @@ async def test_temp_blob():
     
     return result
 
+async def test_async_transform():
+    from server import async_image_transformation, generate_temp_blob
+    
+    print("Testing async image transformation...")
+    
+    # First generate a temp blob URL for output
+    print("Generating output URL...")
+    temp_result = await generate_temp_blob("jpg")
+    if "error" in temp_result:
+        print(f"Error generating temp blob: {temp_result['error']}")
+        return temp_result
+    
+    output_url = temp_result.get("temp_url")
+    if not output_url:
+        print("Failed to get output URL")
+        return {"error": "No output URL generated"}
+    
+    print(f"Output URL: {output_url}")
+    
+    # Test async transformation
+    test_image_url = "https://picsum.photos/800/600"
+    result = await async_image_transformation(
+        source_image_url=test_image_url,
+        output_image_url=output_url,
+        contain_pixels=[400, 300],
+        grayscale=True,
+        rotate=45,
+        source="test_script"
+    )
+    
+    if "error" in result:
+        print(f"Error: {result['error']}")
+        if "details" in result:
+            print(f"Details: {result['details']}")
+    else:
+        print(f"Success: {result}")
+        print(f"Job ID: {result.get('transform_job_id')}")
+        print(f"Client ID: {result.get('client_transform_id')}")
+        print(f"Status: {result.get('status')}")
+    
+    return result
+
+async def test_mm_inches_units():
+    from server import transform_image
+    
+    print("Testing millimeter and inches units...")
+    
+    test_image_url = "https://picsum.photos/800/600"
+    
+    # Test with millimeters
+    print("Testing pad_mm parameter...")
+    result_mm = await transform_image(
+        source_image_url=test_image_url,
+        pad_mm=[100.0, 80.0]  # 100mm x 80mm padding
+    )
+    
+    if "error" in result_mm:
+        print(f"Error (mm): {result_mm['error']}")
+    else:
+        print(f"Success (mm): {result_mm.get('message', 'Transformed')}")
+    
+    # Test with inches
+    print("Testing contain_inches parameter...")
+    result_inches = await transform_image(
+        source_image_url=test_image_url,
+        contain_inches=[4.0, 3.0],  # 4" x 3" contain
+        grayscale=True
+    )
+    
+    if "error" in result_inches:
+        print(f"Error (inches): {result_inches['error']}")
+    else:
+        print(f"Success (inches): {result_inches.get('message', 'Transformed')}")
+    
+    # Test crop_mm
+    print("Testing crop_mm parameter...")
+    result_crop_mm = await transform_image(
+        source_image_url=test_image_url,
+        crop_mm=[10.0, 10.0, 10.0, 10.0]  # 10mm crop on all sides
+    )
+    
+    if "error" in result_crop_mm:
+        print(f"Error (crop_mm): {result_crop_mm['error']}")
+    else:
+        print(f"Success (crop_mm): {result_crop_mm.get('message', 'Transformed')}")
+    
+    return result_mm
+
 async def test_prompts():
     from server import (
         crop_image_prompt,
@@ -126,6 +214,12 @@ async def main():
     
     print("\n--- Testing Temp Blob Tool ---")
     await test_temp_blob()
+    
+    print("\n--- Testing Async Transform Tool ---")
+    await test_async_transform()
+    
+    print("\n--- Testing MM/Inches Units ---")
+    await test_mm_inches_units()
     
     print("\n--- Testing Transform Tool ---")
     result = await test_transform()
