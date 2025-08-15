@@ -31,22 +31,9 @@ class ImageOpsTransformParamsIn(BaseModel):
     grayscale: Optional[bool] = Field(None, description="Convert to grayscale")
     pdf: Optional[bool] = Field(None, description="Convert output to PDF")
 
-@mcp.tool()
-async def transform_image(
-    source_image_url: str,
-    crop_pixels: Optional[List[int]] = None,
-    crop_box_pixels: Optional[List[int]] = None,
-    crop_aspect_ratio: Optional[float] = None,
-    pad_pixels: Optional[List[int]] = None,
-    contain_pixels: Optional[List[int]] = None,
-    override_dpi: Optional[int] = None,
-    rotate: Optional[int] = None,
-    rotate_to: Optional[str] = None,
-    grayscale: Optional[bool] = None,
-    pdf: Optional[bool] = None,
-) -> Dict[str, Any]:
-    """
-    Transform an image using Porcus Lardum ImageOps transformations.
+@mcp.tool(
+    title="Image Transformer",
+    description="""Transform an image using Porcus Lardum ImageOps transformations.
     
     Parameters:
     - source_image_url: URL of the image to transform
@@ -61,8 +48,21 @@ async def transform_image(
     - grayscale: Convert to grayscale
     - pdf: Convert output to PDF
 
-    Returns the transformed source image URL and metadata.
-    """
+    Returns the transformed source image URL and metadata."""
+)
+async def transform_image(
+    source_image_url: str,
+    crop_pixels: Optional[List[int]] = None,
+    crop_box_pixels: Optional[List[int]] = None,
+    crop_aspect_ratio: Optional[float] = None,
+    pad_pixels: Optional[List[int]] = None,
+    contain_pixels: Optional[List[int]] = None,
+    override_dpi: Optional[int] = None,
+    rotate: Optional[int] = None,
+    rotate_to: Optional[str] = None,
+    grayscale: Optional[bool] = None,
+    pdf: Optional[bool] = None,
+) -> Dict[str, Any]:
     
     if not API_KEY:
         return {"error": "API key not configured. Please set PORCUS_LARDUM_API_KEY environment variable."}
