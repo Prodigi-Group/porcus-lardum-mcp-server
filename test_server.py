@@ -35,6 +35,35 @@ async def test_transform():
     
     return result
 
+async def test_temp_blob():
+    from server import generate_temp_blob
+    
+    print("Testing temp blob generation...")
+    
+    # Test without extension
+    result = await generate_temp_blob()
+    if "error" in result:
+        print(f"Error (no extension): {result['error']}")
+    else:
+        print(f"Success (no extension): Generated URL with {result.get('extension')}")
+        print(f"URL: {result.get('temp_url')}")
+    
+    # Test with PNG extension
+    result_png = await generate_temp_blob("png")
+    if "error" in result_png:
+        print(f"Error (PNG): {result_png['error']}")
+    else:
+        print(f"Success (PNG): {result_png.get('temp_url')}")
+    
+    # Test with PDF extension
+    result_pdf = await generate_temp_blob("pdf")
+    if "error" in result_pdf:
+        print(f"Error (PDF): {result_pdf['error']}")
+    else:
+        print(f"Success (PDF): {result_pdf.get('temp_url')}")
+    
+    return result
+
 async def test_prompts():
     from server import (
         crop_image_prompt,
@@ -94,6 +123,9 @@ async def main():
         return
     
     await test_prompts()
+    
+    print("\n--- Testing Temp Blob Tool ---")
+    await test_temp_blob()
     
     print("\n--- Testing Transform Tool ---")
     result = await test_transform()

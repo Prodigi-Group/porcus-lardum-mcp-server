@@ -157,6 +157,52 @@ async def transform_image(
     except Exception as e:
         return {"error": f"Failed to transform image: {str(e)}"}
 
+@mcp.tool(
+    title="Generate Temp Blob URL",
+    description="""Generate a temporary blob SAS URL with write and read permissions.
+    
+    Parameters:
+    - extension: Optional file extension ('png', 'jpg', or 'pdf')
+    
+    Returns a temporary URL that can be used to upload/download files."""
+)
+async def generate_temp_blob(extension: Optional[str] = None) -> Dict[str, Any]:
+    
+    if not API_KEY:
+        return {"error": "API key not configured. Please set PORCUS_LARDUM_API_KEY environment variable."}
+    
+    try:
+        params = {}
+        if extension and extension in ['png', 'jpg', 'pdf']:
+            params['extension'] = extension
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{BASE_URL}/temp_blob",
+                params=params,
+                headers={
+                    "x-api-key": API_KEY,
+                },
+                timeout=30.0,
+            )
+            
+            if response.status_code == 200:
+                # The API returns a plain text URL, not JSON
+                temp_url = response.text.strip()
+                return {
+                    "success": True,
+                    "temp_url": temp_url,
+                    "extension": extension or "no extension",
+                }
+            else:
+                return {
+                    "error": f"API request failed with status {response.status_code}",
+                    "details": response.text,
+                }
+                
+    except Exception as e:
+        return {"error": f"Failed to generate temp blob URL: {str(e)}"}
+
 @mcp.prompt()
 def crop_image_prompt(x1: int = 0, y1: int = 0, x2: int = 100, y2: int = 100) -> str:
     """
