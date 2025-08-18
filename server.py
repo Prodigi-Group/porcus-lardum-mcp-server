@@ -692,36 +692,7 @@ def sticker_design_workflow_prompt(size_mm: float = 10.0) -> str:
 
 Use the async_image_transformation tool with:
 - stickerise_mm: {size_mm}
-- expand_mm: {size_mm * 0.5}
-- override_dpi: 300
-- transparency_to_color: [255, 255, 255]"""
-
-
-@mcp.prompt()
-def social_media_image_prep_prompt(platform: str = "instagram") -> str:
-    """
-    Prompt for preparing images for social media platforms.
-    """
-    if platform.lower() == "instagram":
-        dimensions = [1080, 1080]
-        aspect_ratio = 1.0
-    elif platform.lower() == "facebook":
-        dimensions = [1200, 630]
-        aspect_ratio = 1.91
-    elif platform.lower() == "twitter":
-        dimensions = [1200, 675]
-        aspect_ratio = 1.78
-    else:
-        dimensions = [1080, 1080]
-        aspect_ratio = 1.0
-    
-    return f"""Please prepare this image for {platform} with proper dimensions and formatting.
-
-Use the async_image_transformation tool with:
-- contain_pixels: {dimensions}
-- crop_aspect_ratio: {aspect_ratio}
-- transparency_to_color: [255, 255, 255]
-- override_dpi: 72"""
+- expand_mm: {size_mm * 0.5}"""
 
 
 @mcp.prompt()
@@ -739,18 +710,88 @@ Use the async_image_transformation tool with:
 
 
 @mcp.prompt()
-def vintage_photo_effect_prompt() -> str:
+def remove_background_prompt() -> str:
     """
-    Prompt for creating a vintage photo effect.
+    Prompt for removing background from an image.
     """
-    return """Please create a vintage photo effect with sepia tones and border.
+    return """Please remove the background from this image using AI processing.
 
-Use the async_image_transformation tool with:
-- grayscale: true
-- expand_pixels: 30
-- transparency_to_color: [245, 238, 215]
-- override_dpi: 150"""
+Use the remove_background tool to automatically detect and remove the background,
+leaving only the main subject with transparent background."""
 
+
+@mcp.tool(
+    title="Remove Background",
+    description="""Remove background from an image using AI processing.
+    
+    Parameters:
+    - source_image_url: URL of the image to process
+    - output_image_url: (optional) URL where the processed image will be delivered
+    - client_transform_id: Optional client ID for tracking (default: generated UUID)
+    - source: Optional source identifier for job correlation
+    
+    This uses AI-powered background removal on Azure Kubernetes GPU cluster.
+    Returns a transform_job_id for tracking the asynchronous job.
+    
+    * If user didn't provide output_image_url, use generate_temp_blob tool first
+    * Always return the output_image_url when completing the task."""
+)
+async def remove_background(
+    source_image_url: str,
+    output_image_url: str,
+) -> Dict[str, Any]:
+    
+    if not API_KEY:
+        return {"error": "API key not configured. Please set PORCUS_LARDUM_API_KEY environment variable."}
+    
+    try:
+        # Generate client_transform_id if not provided
+        import uuid
+        if not client_transform_id:
+            client_transform_id = str(uuid.uuid4())
+        
+        request_body = {
+            "source_image_url": source_image_url,
+            "output_image_url": output_image_url,
+            "client_transform_id": client_transform_id,
+            "transform": {
+                "remove_background": True
+            }
+        }
+        
+        # Add source if provided
+        if source:
+            request_body["source"] = source
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{BASE_URL}/transform",
+                json=request_body,
+                headers={
+                    "x-api-key": API_KEY,
+                    "Content-Type": "application/json",
+                },
+                timeout=30.0,
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True,
+                    "transform_job_id": result.get("transform_job_id"),
+                    "client_transform_id": client_transform_id,
+                    "message": "Background removal job queued successfully",
+                    "output_url": output_image_url,
+                    "status": "queued"
+                }
+            else:
+                return {
+                    "error": f"API request failed with status {response.status_code}",
+                    "details": response.text,
+                }
+                
+    except Exception as e:
+        return {"error": f"Failed to queue background removal: {str(e)}"}
 
 @mcp.tool(
     title="Get OpenAPI Schema",
