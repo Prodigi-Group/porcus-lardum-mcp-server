@@ -587,7 +587,9 @@ def stickerise_image_prompt(border_size: int = 20) -> str:
     return f"""Please 'stickerise' or add a white border sticker effect to the image.
 
 Use the async_image_transformation tool with:
-- stickerise_pixels: {border_size}"""
+- stickerise_inches: {border_size}
+- expand_inches: {border_size+(border_size*20/100)}
+where expand_inches must be larger than stickerise_inches."""
 
 @mcp.prompt()
 def expand_border_prompt(border_size: int = 10) -> str:
