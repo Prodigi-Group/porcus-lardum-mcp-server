@@ -52,6 +52,21 @@ class ImageOpsTransformParamsIn(BaseModel):
         None, description="Custom transform sequence array"
     )
 
+class MockupParameters(BaseModel):
+    size: List[int] = Field(description="Output dimensions [width, height] in pixels")
+    sku: str = Field(description="Product SKU identifier")
+    camera: str = Field(description="Camera angle (e.g., 'HeadOn', 'Perspective')")
+    orientation: Optional[str] = Field(None, description="Product orientation ('portrait' or 'landscape')")
+    color: Optional[str] = Field(None, description="Product color variant")
+    wrap: Optional[str] = Field(None, description="Image application method")
+    finish: Optional[str] = Field(None, description="Product surface finish")
+    blank: Optional[bool] = Field(None, description="Generate empty product preview")
+
+class MockupRequest(BaseModel):
+    source_image_url: Optional[str] = Field(None, description="User image to apply to product")
+    output_image_url: str = Field(description="URL where mockup will be delivered")
+    parameters: MockupParameters = Field(description="Mockup generation parameters")
+
 # @mcp.tool(
 #     title="Image Transformer (Sync) - Use async_image_transformation by default!",
 #     description="""Transform an image using Porcus Lardum ImageOps transformations (synchronous).
@@ -677,7 +692,6 @@ def create_print_ready_image_prompt(dpi: int = 300) -> str:
     return f"""Please create a print-ready image with {dpi} DPI and clean transparency.
 
 Use the async_image_transformation tool with:
-- override_dpi: {dpi}
 - transparency_to_color: [255, 255, 255]
 - pdf: true
 - same_pixel_size: true"""
@@ -696,20 +710,6 @@ Use the async_image_transformation tool with:
 
 
 @mcp.prompt()
-def product_mockup_preparation_prompt() -> str:
-    """
-    Prompt for preparing images for product mockups.
-    """
-    return """Please prepare this image for product mockup use with clean edges and proper formatting.
-
-Use the async_image_transformation tool with:
-- transparency_to_color: [255, 255, 255]
-- overwrite_partial_transparency: 255
-- override_dpi: 300
-- expand_pixels: 20"""
-
-
-@mcp.prompt()
 def remove_background_prompt() -> str:
     """
     Prompt for removing background from an image.
@@ -718,6 +718,71 @@ def remove_background_prompt() -> str:
 
 Use the remove_background tool to automatically detect and remove the background,
 leaving only the main subject with transparent background."""
+
+@mcp.prompt()
+def create_product_mockup_prompt(sku: str = "tshirt-basic", 
+                                camera: str = "HeadOn") -> str:
+    """
+    Prompt for creating a product mockup.
+    """
+    return f"""Please create a product mockup using the specified design.
+
+Steps:
+1. Ensure source image is sized to exactly the SKU size with get_prodigi_product_specs_prompt with sku: {sku}
+3. Pad the image to match the Produt/SKU size async_image_transformation pad_pixels [x,y]
+2. Validate the SKU is available for generating Mockups and get its parameters using validate_mockup_sku with sku: {sku}
+3. Pad the image to match the Product/SKU size async_image_transformation pad_pixels [x,y]
+4. Generate a temp blob URL for the output
+5. Use generate_product_mockup with:
+   - sku: {sku}
+   - camera: {camera}
+   - width: 1200, height: 1200
+   - source_image_url: [your design image URL]
+   - output_image_url: [generated temp blob URL]"""
+
+@mcp.prompt()
+def blank_product_preview_prompt(sku: str = "hoodie-basic") -> str:
+    """
+    Prompt for generating blank product previews.
+    """
+    return f"""Please generate blank product previews for catalog display.
+
+Steps:
+1. Validate SKU {sku} using validate_mockup_sku
+2. Generate mockup with blank: true (no user design applied)
+3. Use standard e-commerce dimensions: 1000x1000
+4. Try multiple camera angles if available
+5. This shows the base product without any custom design"""
+
+@mcp.prompt()
+def browse_mockups_catalog_prompt() -> str:
+    """
+    Prompt for browsing the available mockups catalog.
+    """
+    return """Please show me the available product mockups catalog.
+
+Use the list_available_mockups tool to:
+1. Get the complete list of available products
+2. Show product categories and SKUs
+3. Display available camera angles and orientations
+4. List color variants and customization options
+5. Help me choose the right product for my design"""
+
+@mcp.prompt()
+def get_prodigi_product_specs_prompt(sku: str = "GLOBAL-CFP-18X24") -> str:
+    """
+    Prompt for getting detailed product specifications including pixel dimensions for a SKU.
+    """
+    return f"""Please get the detailed specifications and pixel dimensions for product SKU {sku}.
+
+Use the get_product_pixel_dimensions tool with:
+- sku: {sku}
+
+This will return:
+- Exact pixel dimensions needed for image preparation
+- Physical dimensions and product details
+- Available color variants and finishes
+- Print area specifications for optimal image sizing"""
 
 
 @mcp.tool(
@@ -792,6 +857,268 @@ async def remove_background(
                 
     except Exception as e:
         return {"error": f"Failed to queue background removal: {str(e)}"}
+
+
+@mcp.tool(
+    title="Validate Mockup SKU",
+    description="""Validate a product SKU and retrieve available mockup parameters.
+    
+    Parameters:
+    - sku: Product SKU identifier to validate
+    
+    Returns available camera angles, colors, orientations, and other 
+    customization options for the specified product."""
+)
+async def validate_mockup_sku(sku: str) -> Dict[str, Any]:
+    
+    if not API_KEY:
+        return {
+            "error": "API key not configured. Please set "
+                     "PORCUS_LARDUM_API_KEY environment variable."
+        }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{BASE_URL}/mockup/{sku}",
+                headers={
+                    "x-api-key": API_KEY,
+                },
+                timeout=30.0,
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True,
+                    "sku": sku,
+                    "valid": True,
+                    "parameters": result,
+                    "message": f"SKU {sku} is valid and ready for mockup generation"
+                }
+            elif response.status_code == 404:
+                return {
+                    "success": False,
+                    "sku": sku,
+                    "valid": False,
+                    "error": f"SKU {sku} not found or not available for mockups"
+                }
+            else:
+                return {
+                    "error": f"API request failed with status {response.status_code}",
+                    "details": response.text,
+                }
+                
+    except Exception as e:
+        return {"error": f"Failed to validate SKU: {str(e)}"}
+
+
+@mcp.tool(
+    title="List Available Mockups",
+    description="""Get a complete list of all available product mockups with their parameters.
+    
+    Returns a comprehensive catalog of all available products including:
+    - Product SKUs and names
+    - Available camera angles
+    - Supported orientations
+    - Color variants
+    - Product categories
+    - Dimensions and specifications
+    
+    Use this to discover available products before creating mockups."""
+)
+async def list_available_mockups() -> Dict[str, Any]:
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://blender-mockups-func-dev.azurewebsites.net/api/json",
+                timeout=30.0,
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True,
+                    "mockups": result,
+                    "total_products": len(result) if isinstance(result, list) else "unknown",
+                    "message": "Successfully retrieved available mockups catalog"
+                }
+            else:
+                return {
+                    "error": f"API request failed with status {response.status_code}",
+                    "details": response.text,
+                }
+                
+    except Exception as e:
+        return {"error": f"Failed to fetch mockups catalog: {str(e)}"}
+
+
+@mcp.tool(
+    title="Get Product Pixel Dimensions",
+    description="""Get pixel dimensions and product details from Prodigi API.
+    
+    Parameters:
+    - sku: Product SKU identifier (e.g., 'GLOBAL-CFP-18X24')
+    - api_key: Prodigi API key for authentication
+    
+    Returns detailed product information including:
+    - Print area pixel dimensions (horizontalResolution, verticalResolution)
+    - Physical dimensions and units
+    - Available colors, finishes, and variants
+    - Shipping regions
+    - Product description and attributes
+    
+    This is essential for determining the correct pixel dimensions for image preparation."""
+)
+async def get_product_pixel_dimensions(sku: str) -> Dict[str, Any]:
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://api.sandbox.prodigi.com/v4.0/products/{sku}",
+                headers={
+                    "X-API-Key": "test_90fc77b9-0407-4c0d-99af-c531fe047363",
+                },
+                timeout=30.0,
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                product = result.get("product", {})
+                
+                # Extract pixel dimensions from first variant
+                pixel_dimensions = None
+                variants = product.get("variants", [])
+                if variants:
+                    first_variant = variants[0]
+                    print_area_sizes = first_variant.get("printAreaSizes", {})
+                    default_area = print_area_sizes.get("default", {})
+                    if default_area:
+                        pixel_dimensions = {
+                            "width": default_area.get("horizontalResolution"),
+                            "height": default_area.get("verticalResolution")
+                        }
+                
+                return {
+                    "success": True,
+                    "sku": sku,
+                    "description": product.get("description"),
+                    "physical_dimensions": product.get("productDimensions", {}),
+                    "pixel_dimensions": pixel_dimensions,
+                    "attributes": product.get("attributes", {}),
+                    "available_colors": product.get("attributes", {}).get("color", []),
+                    "variants_count": len(variants),
+                    "product_data": product
+                }
+            elif response.status_code == 404:
+                return {
+                    "success": False,
+                    "sku": sku,
+                    "error": f"Product SKU {sku} not found"
+                }
+            else:
+                return {
+                    "error": f"API request failed with status {response.status_code}",
+                    "details": response.text,
+                }
+                
+    except Exception as e:
+        return {"error": f"Failed to get product dimensions: {str(e)}"}
+
+
+@mcp.tool(
+    title="Generate Product Mockup",
+    description="""Generate a 3D product mockup using Blender rendering.
+    
+    Parameters:
+    - sku: Product SKU identifier (validate first with validate_mockup_sku)
+    - width: Output image width in pixels
+    - height: Output image height in pixels  
+    - camera: Camera angle (e.g., 'HeadOn', 'Perspective')
+    - output_image_url: URL where mockup will be delivered
+    - source_image_url: (optional) User image to apply to product
+    - orientation: Product orientation ('portrait' or 'landscape')
+    - color: Product color variant
+    - wrap: Image application method
+    - finish: Product surface finish
+    - blank: Generate empty product preview without user image
+    
+    This creates photo-realistic 3D mockups for e-commerce and marketing.
+    Always validate the SKU first to ensure compatibility."""
+)
+async def generate_product_mockup(
+    sku: str,
+    width: int,
+    height: int,
+    camera: str,
+    output_image_url: str,
+    source_image_url: Optional[str] = None,
+    orientation: Optional[str] = None,
+    color: Optional[str] = None,
+    wrap: Optional[str] = None,
+    finish: Optional[str] = None,
+    blank: Optional[bool] = None,
+) -> Dict[str, Any]:
+    
+    if not API_KEY:
+        return {
+            "error": "API key not configured. Please set "
+                     "PORCUS_LARDUM_API_KEY environment variable."
+        }
+    
+    try:
+        mockup_parameters = MockupParameters(
+            size=[width, height],
+            sku=sku,
+            camera=camera,
+            orientation=orientation,
+            color=color,
+            wrap=wrap,
+            finish=finish,
+            blank=blank,
+        )
+        
+        mockup_request = MockupRequest(
+            source_image_url=source_image_url,
+            output_image_url=output_image_url,
+            parameters=mockup_parameters,
+        )
+        
+        request_body = mockup_request.model_dump(exclude_none=True)
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{BASE_URL}/mockup",
+                json=request_body,
+                headers={
+                    "x-api-key": API_KEY,
+                    "Content-Type": "application/json",
+                },
+                timeout=60.0,  # Mockups may take longer
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True,
+                    "result": result,
+                    "sku": sku,
+                    "output_url": output_image_url,
+                    "dimensions": [width, height],
+                    "camera": camera,
+                    "message": "Mockup generation job queued successfully",
+                    "status": "queued"
+                }
+            else:
+                return {
+                    "error": f"API request failed with status {response.status_code}",
+                    "details": response.text,
+                }
+                
+    except Exception as e:
+        return {"error": f"Failed to generate mockup: {str(e)}"}
+
 
 @mcp.tool(
     title="Get OpenAPI Schema",
