@@ -720,8 +720,7 @@ Use the remove_background tool to automatically detect and remove the background
 leaving only the main subject with transparent background."""
 
 @mcp.prompt()
-def create_product_mockup_prompt(sku: str = "tshirt-basic", 
-                                camera: str = "HeadOn") -> str:
+def create_product_mockup_prompt(image_url: str, sku: str = "tshirt-basic", camera: str = "HeadOn") -> str:
     """
     Prompt for creating a product mockup.
     """
@@ -729,7 +728,9 @@ def create_product_mockup_prompt(sku: str = "tshirt-basic",
 
 Steps:
 1. Ensure source image is sized to exactly the SKU size with get_prodigi_product_specs_prompt with sku: {sku}
-3. Pad the image to match the Produt/SKU size async_image_transformation pad_pixels [x,y]
+3. Pad the image to match the Produt/SKU size async_image_transformation
+- image_url: {image_url}
+- pad_pixels[x,y]
 2. Validate the SKU is available for generating Mockups and get its parameters using validate_mockup_sku with sku: {sku}
 3. Pad the image to match the Product/SKU size async_image_transformation pad_pixels [x,y]
 4. Generate a temp blob URL for the output
