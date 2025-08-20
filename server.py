@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import os
 from typing import Optional, Dict, Any, List
 import httpx
@@ -319,7 +320,7 @@ async def generate_temp_blob(extension: Optional[str] = None) -> Dict[str, Any]:
         return {"error": f"Failed to generate temp blob URL: {str(e)}"}
 
 @mcp.tool(
-    title="Image Transformer (Async) - DEFAULT - Use this for transformations!",
+    title="Image Transformer (Async)",
     description="""Queue an image transformation job for asynchronous processing.
     
     Parameters:
@@ -330,9 +331,9 @@ async def generate_temp_blob(extension: Optional[str] = None) -> Dict[str, Any]:
     - crop_pixels: Remove pixels from borders [top, right, bottom, left] or single value for all
     - crop_mm: Remove millimeters from borders [top, right, bottom, left] or single value for all
     - crop_inches: Remove inches from borders [top, right, bottom, left] or single value for all
-    - crop_box_pixels: Extract rectangle [x1, y1, x2, y2] in pixels
-    - crop_box_mm: Extract rectangle [x1, y1, x2, y2] in millimeters
-    - crop_box_inches: Extract rectangle [x1, y1, x2, y2] in inches
+    - crop_box_pixels: Extract rectangle [x1, y1, x2, y2] in pixels. Also supports offset, centered in the center of the image.
+    - crop_box_mm: Extract rectangle [x1, y1, x2, y2] in millimeters. Also supports offset, centered in the center of the image.
+    - crop_box_inches: Extract rectangle [x1, y1, x2, y2] in inches. Also supports offset, centered in the center of the image.
     - crop_aspect_ratio: Crop to width/height ratio (e.g., 1.77 for 16:9)
     - pad_pixels: Expand canvas to a specific size [width, height] in pixels
     - pad_mm: Expand canvas to a specific size [width, height] in millimeters
@@ -378,6 +379,9 @@ async def async_image_transformation(
     crop_pixels: Optional[List[int]] = None,
     crop_mm: Optional[List[float]] = None,
     crop_inches: Optional[List[float]] = None,
+    crop_box_pixels_offset: Optional[List[int]] = None,
+    crop_box_mm_offset: Optional[List[float]] = None,
+    crop_box_inches_offset: Optional[List[float]] = None,
     crop_box_pixels: Optional[List[int]] = None,
     crop_box_mm: Optional[List[float]] = None,
     crop_box_inches: Optional[List[float]] = None,
@@ -425,12 +429,21 @@ async def async_image_transformation(
         
         crop_box_units = None
         if crop_box_pixels:
-            crop_box_units = [[Unit(pixels=p)] for p in crop_box_pixels]
+            crop_box_units = [[Unit(pixels=p) for p in crop_box_pixels]] if not crop_box_pixels_offset else [
+                [Unit(pixels=p) for p in crop_box_pixels],
+                [Unit(pixels=p) for p in crop_box_pixels_offset]
+            ]
         elif crop_box_mm:
-            crop_box_units = [[Unit(millimeter=p)] for p in crop_box_mm]
+            crop_box_units = [[Unit(millimeter=p) for p in crop_box_mm]] if not crop_box_mm_offset else [
+                [Unit(millimeter=p) for p in crop_box_mm],
+                [Unit(millimeter=p) for p in crop_box_mm_offset]
+            ]
         elif crop_box_inches:
-            crop_box_units = [[Unit(inches=p)] for p in crop_box_inches]
-        
+            crop_box_units = [[Unit(inches=p) for p in crop_box_inches]] if not crop_box_inches_offset else [
+                [Unit(inches=p) for p in crop_box_inches],
+                [Unit(inches=p) for p in crop_box_inches_offset]
+            ]
+
         pad_units = None
         if pad_pixels:
             pad_units = [Unit(pixels=p) for p in pad_pixels]
@@ -513,6 +526,7 @@ async def async_image_transformation(
                     "client_transform_id": client_transform_id,
                     "message": "Async transformation job queued successfully",
                     "output_url": output_image_url,
+                    "raw_request_body": json.dumps(request_body),
                     "status": "queued"
                 }
             else:
@@ -525,14 +539,16 @@ async def async_image_transformation(
         return {"error": f"Failed to queue async transformation: {str(e)}"}
 
 @mcp.prompt()
-def crop_image_prompt(x1: int = 0, y1: int = 0, x2: int = 100, y2: int = 100) -> str:
+def crop_image_prompt(width: int = 0, height: int = 0, offset_x: int = 100, offset_y: int = 100) -> str:
     """
     Prompt for cropping an image to specific coordinates.
     """
     return f"""Please crop the image to the specified region.
 
 Use the async_image_transformation tool with these parameters:
-- crop_box_pixels: [{x1}, {y1}, {x2}, {y2}]"""
+- crop_box_pixels: [{width}, {height}]
+- crop_box_pixels_offset: [{offset_x}, {offset_y}]
+"""
 
 @mcp.prompt()
 def crop_aspect_ratio_prompt(aspect_ratio: float = 1.0) -> str:
@@ -623,6 +639,7 @@ def transparency_to_white_prompt() -> str:
     """
     return """Please replace transparent areas with a white background.
 
+Do not use async_image_transformation.
 Use the async_image_transformation tool with:
 - transparency_to_color: [255, 255, 255]"""
 
@@ -714,10 +731,9 @@ def remove_background_prompt() -> str:
     """
     Prompt for removing background from an image.
     """
-    return """Please remove the background from this image using AI processing.
+    return """Please remove the background from this image.
 
-Use the remove_background tool to automatically detect and remove the background,
-leaving only the main subject with transparent background."""
+Use the tool remove_background"""
 
 @mcp.prompt()
 def create_product_mockup_prompt(image_url: str, sku: str = "tshirt-basic", camera: str = "HeadOn") -> str:
@@ -806,28 +822,18 @@ async def remove_background(
     source_image_url: str,
     output_image_url: str,
 ) -> Dict[str, Any]:
-    
+    print("Removing background from image...")
     if not API_KEY:
         return {"error": "API key not configured. Please set PORCUS_LARDUM_API_KEY environment variable."}
     
     try:
-        # Generate client_transform_id if not provided
-        import uuid
-        if not client_transform_id:
-            client_transform_id = str(uuid.uuid4())
-        
         request_body = {
             "source_image_url": source_image_url,
             "output_image_url": output_image_url,
-            "client_transform_id": client_transform_id,
             "transform": {
                 "remove_background": True
             }
         }
-        
-        # Add source if provided
-        if source:
-            request_body["source"] = source
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -845,9 +851,9 @@ async def remove_background(
                 return {
                     "success": True,
                     "transform_job_id": result.get("transform_job_id"),
-                    "client_transform_id": client_transform_id,
                     "message": "Background removal job queued successfully",
                     "output_url": output_image_url,
+                    "raw_request_body": json.dumps(request_body),
                     "status": "queued"
                 }
             else:
