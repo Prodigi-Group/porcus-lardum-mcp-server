@@ -331,9 +331,12 @@ async def generate_temp_blob(extension: Optional[str] = None) -> Dict[str, Any]:
     - crop_pixels: Remove pixels from borders [top, right, bottom, left] or single value for all
     - crop_mm: Remove millimeters from borders [top, right, bottom, left] or single value for all
     - crop_inches: Remove inches from borders [top, right, bottom, left] or single value for all
-    - crop_box_pixels: Extract rectangle [x1, y1, x2, y2] in pixels. Also supports offset, centered in the center of the image.
-    - crop_box_mm: Extract rectangle [x1, y1, x2, y2] in millimeters. Also supports offset, centered in the center of the image.
-    - crop_box_inches: Extract rectangle [x1, y1, x2, y2] in inches. Also supports offset, centered in the center of the image.
+    - crop_box_pixels_offset: offset x, y pixels coordinates. defaults 0,0
+    - crop_box_mm_offset: offset x, y millimeters coordinates. defaults 0,0
+    - crop_box_inches_offset: offset x, y inches coordinates. defaults 0,0
+    - crop_box_pixels: Extract rectangle [x1, y1] in pixels
+    - crop_box_mm: Extract rectangle [x1, y1] in millimeters
+    - crop_box_inches: Extract rectangle [x1, y1] in inches
     - crop_aspect_ratio: Crop to width/height ratio (e.g., 1.77 for 16:9)
     - pad_pixels: Expand canvas to a specific size [width, height] in pixels
     - pad_mm: Expand canvas to a specific size [width, height] in millimeters
