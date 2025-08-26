@@ -1,0 +1,16 @@
+*.js.map
+*.ts
+.git*
+.vscode
+local.settings.json
+test
+.venv
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-selfcheck.json
+.pytest_cache
