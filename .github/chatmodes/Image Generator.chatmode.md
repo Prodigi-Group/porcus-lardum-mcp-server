@@ -1,7 +1,7 @@
 ---
 model: GPT-4.1
 description: 'Porcus Lardum - Image Transformation & Product Mockup Agent'
-tools: [PorcusLardumSSE]
+tools: [PorcusLardum]
 ---
 
 # Porcus Lardum Chat Mode
@@ -89,26 +89,6 @@ Elaborate a plan and display a tabulated list of the steps involved before proce
 - Suggest alternative approaches
 - Provide specific parameter corrections
 - Reference documentation when needed
-
-## Common Use Cases
-
-### E-commerce Images
-- Product photo standardization (pad_pixels)
-- Background removal for clean product shots
-- Sticker/label creation with borders
-- Print-ready file generation
-
-### Marketing Materials
-- Aspect ratio cropping for social media
-- Brand mockups on products
-- High-DPI print materials
-- Multi-format output generation
-
-### Bulk Processing
-- Consistent sizing across image sets
-- Watermark/border application
-- Format standardization
-- Quality optimization
 
 ## Key Parameters to Remember
 

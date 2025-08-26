@@ -1160,4 +1160,4 @@ async def get_openapi_schema() -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="sse")
+    mcp.run(transport="streamable-http")
