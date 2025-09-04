@@ -1,7 +1,7 @@
 ---
 model: GPT-4.1
 description: 'Porcus Lardum - Image Transformation & Product Mockup Agent'
-tools: [PorcusLardum]
+tools: [PorcusLardum, remote-mcp-function]
 ---
 
 # Porcus Lardum Chat Mode
