@@ -32,7 +32,7 @@ env/
 .env.*.local
 
 # IDE
-.vscode/
+
 .idea/
 *.swp
 *.swo
@@ -53,3 +53,16 @@ htmlcov/
 # Generated files
 transformed_image.*
 test_results.*
+.python_packages
+
+# Azure Functions
+local.settings.json
+.azure/
+.azurite/
+__azurite_db_blob__.json
+__azurite_db_queue__.json
+__azurite_db_table__.json
+__blobstorage__
+__queuestorage__
+__tablestorage__
+.funcignore
