@@ -6,14 +6,21 @@ import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from fastmcp import FastMCP
+from starlette.middleware.cors import CORSMiddleware
 
 
 load_dotenv()
 
 API_KEY = os.getenv("PORCUS_LARDUM_API_KEY", "")
 BASE_URL = os.getenv("PORCUS_LARDUM_BASE_URL", "https://porcus-lardum-func-dev.azurewebsites.net")
+PRODIGI_API_KEY = os.getenv("PRODIGI_API_KEY", "")
 
-mcp = FastMCP("Porcus Lardum Image Transformer")
+mcp = FastMCP(
+    "Porcus Lardum Image Transformer",
+    # Dont use session ids...
+    stateless_http=True
+)
+
 
 class Unit(BaseModel):
     pixels: Optional[int] = Field(None, ge=0, le=100000)
@@ -993,7 +1000,7 @@ async def get_product_pixel_dimensions(sku: str) -> Dict[str, Any]:
             response = await client.get(
                 f"https://api.sandbox.prodigi.com/v4.0/products/{sku}",
                 headers={
-                    "X-API-Key": "test_90fc77b9-0407-4c0d-99af-c531fe047363",
+                    "X-API-Key": PRODIGI_API_KEY,
                 },
                 timeout=30.0,
             )
@@ -1163,7 +1170,12 @@ async def get_openapi_schema() -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to fetch OpenAPI schema: {str(e)}"}
 
-app = mcp.http_app()
+app = mcp.http_app(transport="streamable-http")
+
+app.add_middleware(
+    CORSMiddleware,
+    expose_headers=["mcp-session-id"]
+)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")

@@ -1,6 +1,6 @@
 # function_app.py
 
-import azure.functions as func 
+import azure.functions as func
 from server import app
 
 app = func.AsgiFunctionApp(
