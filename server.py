@@ -5,7 +5,8 @@ from typing import Optional, Dict, Any, List
 import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
+
 
 load_dotenv()
 
@@ -370,13 +371,13 @@ async def generate_temp_blob(extension: Optional[str] = None) -> Dict[str, Any]:
 
     Returns a transform_job_id for tracking the asynchronous job.
 
-    * If user didn't provide a output_image_url, a new temporary URL will be generated using the temp_blob tool
+    * If user didn't provide a output_image_url, one will be provided in the response body
     * Very Important:Always return the signed url output_image_url when completing the task.
     """
 )
 async def async_image_transformation(
     source_image_url: str,
-    output_image_url: str,
+    output_image_url: Optional[str] = None,
     client_transform_id: Optional[str] = None,
     source: Optional[str] = None,
     crop_pixels: Optional[List[int]] = None,
@@ -501,9 +502,13 @@ async def async_image_transformation(
         
         request_body = {
             "source_image_url": source_image_url,
-            "output_image_url": output_image_url,
             "client_transform_id": client_transform_id,
             "transform": transform_params.model_dump(exclude_none=True)
+        }
+        
+        request_body = {
+            **request_body,
+            **({"output_image_url": output_image_url} if output_image_url else {})
         }
         
         # Add source if provided
@@ -528,7 +533,7 @@ async def async_image_transformation(
                     "transform_job_id": result.get("transform_job_id"),
                     "client_transform_id": client_transform_id,
                     "message": "Async transformation job queued successfully",
-                    "output_url": output_image_url,
+                    "output_url": result.get("output_image_url"),
                     "raw_request_body": json.dumps(request_body),
                     "status": "queued"
                 }
@@ -817,13 +822,12 @@ This will return:
     
     This uses AI-powered background removal on Azure Kubernetes GPU cluster.
     Returns a transform_job_id for tracking the asynchronous job.
-    
-    * If user didn't provide output_image_url, use generate_temp_blob tool first
+
     * Always return the output_image_url when completing the task."""
 )
 async def remove_background(
     source_image_url: str,
-    output_image_url: str,
+    output_image_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     print("Removing background from image...")
     if not API_KEY:
@@ -832,12 +836,13 @@ async def remove_background(
     try:
         request_body = {
             "source_image_url": source_image_url,
-            "output_image_url": output_image_url,
             "transform": {
                 "remove_background": True
             }
         }
-        
+
+        request_body.update({"output_image_url": output_image_url} if output_image_url else {})
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{BASE_URL}/transform",
@@ -855,7 +860,7 @@ async def remove_background(
                     "success": True,
                     "transform_job_id": result.get("transform_job_id"),
                     "message": "Background removal job queued successfully",
-                    "output_url": output_image_url,
+                    "output_url": result.get("output_image_url"),
                     "raw_request_body": json.dumps(request_body),
                     "status": "queued"
                 }
@@ -1158,6 +1163,7 @@ async def get_openapi_schema() -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to fetch OpenAPI schema: {str(e)}"}
 
+app = mcp.http_app()
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")

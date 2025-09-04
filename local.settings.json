@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+    "PORCUS_LARDUM_API_KEY": "",
+    "PORCUS_LARDUM_BASE_URL": "https://porcus-lardum-func-dev.azurewebsites.net",
+    "FUNCTIONS_WORKER_SHARED_MEMORY_DATA_TRANSFER_ENABLED": 1,
+    "DOCKER_SHM_SIZE": 268435456
+  }
+}
