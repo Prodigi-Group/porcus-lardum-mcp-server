@@ -139,3 +139,12 @@ To add new transformation capabilities, modify the `ImageOpsTransformParamsIn` c
 
 For issues or questions about the MCP server, please open an issue in this repository.
 For Porcus Lardum API documentation, refer to the OpenAPI specification.
+
+
+## Azure Function
+
+
+### Get Key
+```
+az functionapp keys list --resource-group porcus-lardum-mcp-rg-dev --name porcus-lardum-mcp-func-dev --query systemKeys.mcp_extension --output tsv
+```
