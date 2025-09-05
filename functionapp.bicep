@@ -1,6 +1,5 @@
 param sites_porcus_lardum_mcp_name string = 'porcus-lardum-mcp'
 param serverfarms_FLEX_porcus_lardum_mcp_bacb_externalid string = '/subscriptions/9d291a41-ab1a-47c4-9501-57c05937bef3/resourceGroups/porcuslardummcp/providers/Microsoft.Web/serverfarms/FLEX-porcus-lardum-mcp-bacb'
-param service_mcp_managment_externalid string = '/subscriptions/9d291a41-ab1a-47c4-9501-57c05937bef3/resourceGroups/rg-Prodigi-AI-MCP-Management/providers/Microsoft.ApiManagement/service/mcp-managment'
 
 resource sites_porcus_lardum_mcp_name_resource 'Microsoft.Web/sites@2024-11-01' = {
   name: sites_porcus_lardum_mcp_name
@@ -154,9 +153,6 @@ resource sites_porcus_lardum_mcp_name_web 'Microsoft.Web/sites/config@2024-11-01
     autoHealEnabled: false
     vnetRouteAllEnabled: false
     vnetPrivatePortsCount: 0
-    apiManagementConfig: {
-      id: '${service_mcp_managment_externalid}/apis/porcus-lardum-mcp'
-    }
     localMySqlEnabled: false
     ipSecurityRestrictions: [
       {
@@ -190,16 +186,16 @@ resource sites_porcus_lardum_mcp_name_web 'Microsoft.Web/sites/config@2024-11-01
   }
 }
 
-resource sites_porcus_lardum_mcp_name_5fa2b711_ed3b_4f8d_89a5_8abc9cad25b5 'Microsoft.Web/sites/deployments@2024-11-01' = {
+resource sites_porcus_lardum_mcp_name_317914d1_8858_456a_870f_ccca4dfea79a 'Microsoft.Web/sites/deployments@2024-11-01' = {
   parent: sites_porcus_lardum_mcp_name_resource
-  name: '5fa2b711-ed3b-4f8d-89a5-8abc9cad25b5'
+  name: '317914d1-8858-456a-870f-ccca4dfea79a'
   location: 'North Europe'
   properties: {
     status: 4
     deployer: 'ms-azuretools-vscode'
-    start_time: '2025-09-04T13:20:56.6766235Z'
-    end_time: '2025-09-04T13:22:09.3833615Z'
-    active: true
+    start_time: '2025-09-04T11:44:18.6514605Z'
+    end_time: '2025-09-04T11:45:31.3166665Z'
+    active: false
   }
 }
 
@@ -212,19 +208,19 @@ resource sites_porcus_lardum_mcp_name_6ccaa720_27ea_4668_8a98_ebabf53a97ea 'Micr
     deployer: 'ms-azuretools-vscode'
     start_time: '2025-09-04T13:12:24.7237118Z'
     end_time: '2025-09-04T13:13:59.7008197Z'
-    active: false
+    active: true
   }
 }
 
-resource sites_porcus_lardum_mcp_name_eec821b8_3086_4838_9ceb_dae2111b16fe 'Microsoft.Web/sites/deployments@2024-11-01' = {
+resource sites_porcus_lardum_mcp_name_7d66fa31_9251_426f_a0ef_ded73cf7ad10 'Microsoft.Web/sites/deployments@2024-11-01' = {
   parent: sites_porcus_lardum_mcp_name_resource
-  name: 'eec821b8-3086-4838-9ceb-dae2111b16fe'
+  name: '7d66fa31-9251-426f-a0ef-ded73cf7ad10'
   location: 'North Europe'
   properties: {
     status: 4
     deployer: 'ms-azuretools-vscode'
-    start_time: '2025-09-04T13:18:44.3199422Z'
-    end_time: '2025-09-04T13:19:57.010247Z'
+    start_time: '2025-09-04T11:49:58.838878Z'
+    end_time: '2025-09-04T11:51:12.7414822Z'
     active: false
   }
 }
