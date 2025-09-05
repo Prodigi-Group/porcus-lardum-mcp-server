@@ -4,5 +4,9 @@
             "type": "http",
             "url": "http://porcus-lardum-mcp.azurewebsites.net/mcp"
         },
+		"imagelibrary": {
+			"type": "http",
+			"url": "https://management.prodigi.tech/Image-library-mcp/mcp"
+		}
     }
 }
